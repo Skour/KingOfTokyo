@@ -1,14 +1,13 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
-
-namespace BoardGames.Framework
+﻿namespace BoardGames.Framework
 {
     interface IGame
     {
         void Tick();
+        void PlayAction(IAction aAction);
+
         bool IsGameCompleted();
+        bool IsRequiringPlayerAction();
+
+        IPlayer GetCurrentPlayer();
     }
 }

@@ -1,10 +1,4 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
-
-namespace BoardGames.Framework
+﻿namespace BoardGames.Framework
 {
     class CGameController
     {
@@ -29,7 +23,16 @@ namespace BoardGames.Framework
         {
             do
             {
-                _game.Tick();
+                do
+                {
+                    _game.Tick();
+                } while (!_game.IsRequiringPlayerAction());
+
+                do
+                {
+                    _game.PlayAction(_game.GetCurrentPlayer().ProvideAction(_game));
+                } while (_game.IsRequiringPlayerAction());
+
             } while (!_game.IsGameCompleted());
         }
 

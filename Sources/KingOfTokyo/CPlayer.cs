@@ -1,9 +1,11 @@
-﻿using System;
+﻿using BoardGames.Framework;
+using System;
+using System.Collections.Generic;
 using System.Diagnostics;
 
 namespace BoardGames.KingOfTokyo
 {
-    class CPlayer
+    class CPlayer : IPlayer
     {
         #region Const Fields
 
@@ -122,5 +124,35 @@ namespace BoardGames.KingOfTokyo
         }
 
         #endregion
+
+        #region IPlayer
+
+        public IAction ProvideAction(IGame aGame)
+        {
+            CGame kotGame = (CGame)aGame;
+
+            switch(kotGame.TurnState)
+            {
+                case eTurnState.eTS_ReactToDicePlayerHook:
+                    {
+                        // STODO: Implement logic for selection
+                        List<int> diceIndex = new List<int>();
+                        for (int i = 0; i < kotGame.Dice.Count; ++i)
+                        {
+                            if((_location == eLocations.eL_Outside && kotGame.Dice[i].Result != eDiceResult.eDR_Three) ||
+                               (_location != eLocations.eL_Outside && kotGame.Dice[i].Result != eDiceResult.eDR_Punch))
+                            {
+                                diceIndex.Add(i);
+                            }
+                        }
+
+                        return new CActionMarkDiceForReroll(diceIndex);
+                    }                  
+            }
+
+            return null;
+        }
+
+        #endregion // IPlayer
     }
 }

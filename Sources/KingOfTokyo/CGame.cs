@@ -5,6 +5,7 @@ using System.Diagnostics;
 using System.Linq;
 using System.IO;
 using System.Text;
+using BoardGames.Framework;
 
 namespace BoardGames.KingOfTokyo
 {
@@ -15,18 +16,10 @@ namespace BoardGames.KingOfTokyo
         eTS_StartingTurn,
         eTS_InitialRollingDice,
         eTS_RollingDice,
-        eTS_ReactToDiceAction,
-        eTS_ApplyDamageOnTokyoAction,
-        eTS_PurchaseCardsAction,
+        eTS_ReactToDicePlayerHook,
+        eTS_ApplyDamageOnTokyoPlayerHook,
+        eTS_PurchaseCardsPlayerHook,
         eTS_EndingTurn,
-    }
-
-    enum ePlayerActionType
-    {
-        ePAT_ReactToDice,
-        ePAT_ReactToDamageOnTokyo,
-        ePAT_PurchaseCard,
-        //ePAT_UseCard,
     }
 
     enum eLocations
@@ -41,7 +34,7 @@ namespace BoardGames.KingOfTokyo
 
     #endregion
 
-    class CGame : Framework.IGame
+    class CGame : IGame
     {
         #region Static Fields
 
@@ -53,6 +46,7 @@ namespace BoardGames.KingOfTokyo
         #region Const Fields
 
         public const int DefaultDiceCount = 6;
+        public const int DefaultRollsCount = 3;
         public const int VPRewardEnterTokyo = 1;
         public const int VPRewardBeginTurnInTokyo = 2;
 
@@ -68,7 +62,7 @@ namespace BoardGames.KingOfTokyo
         private uint _startingPlayerIndex = 0;
         private uint _currentPlayerIndex = 0;
         private eTurnState _turnState = eTurnState.eTS_StartingTurn;
-        private uint _nbDiceRollsLeft = 3;
+        private uint _nbDiceRollsLeft = DefaultRollsCount;
 
         StringBuilder _log = new StringBuilder();
 
@@ -97,6 +91,22 @@ namespace BoardGames.KingOfTokyo
             get
             {
                 return _diceList;
+            }
+        }
+
+        public eTurnState TurnState
+        {
+            get
+            {
+                return _turnState;
+            }
+        }
+
+        public uint NbDiceRollsLeft
+        {
+            get
+            {
+                return _nbDiceRollsLeft;
             }
         }
 
@@ -237,7 +247,7 @@ namespace BoardGames.KingOfTokyo
                             
                             player.Location = eLocations.eL_Outside;
                             
-                            // STODO: Implement eTurnState.eTS_ApplyDamageOnTokyoAction
+                            // STODO: Implement eTurnState.eTS_ApplyDamageOnTokyoPlayerHook
                         }
                     }
 
@@ -319,7 +329,7 @@ namespace BoardGames.KingOfTokyo
                         }
 
                         _nbDiceRollsLeft--;
-                        _turnState = eTurnState.eTS_RollingDice; // STODO: Implement eTurnState.eTS_ReactToDiceAction
+                        _turnState = eTurnState.eTS_ReactToDicePlayerHook;
                     }
                     break;
 
@@ -330,11 +340,12 @@ namespace BoardGames.KingOfTokyo
                             if (die.ShouldReroll)
                             {
                                 die.Roll();
+                                die.ShouldReroll = false;
                             }
                         }
 
                         _nbDiceRollsLeft--;
-                        _turnState = _nbDiceRollsLeft == 0 ? eTurnState.eTS_EndingTurn : eTurnState.eTS_RollingDice; // STODO: Implement eTurnState.eTS_ReactToDiceAction
+                        _turnState = eTurnState.eTS_ReactToDicePlayerHook;
                     }
                     break;
 
@@ -342,13 +353,13 @@ namespace BoardGames.KingOfTokyo
                     {
                         CalculateAndApplyDiceResult();
 
-                        // STODO: Implement eTurnState.eTS_PurchaseCardsAction
+                        // STODO: Implement eTurnState.eTS_PurchaseCardsPlayerHook
 
                         LogGameState();
 
                         if (!IsGameCompleted())
                         {
-                            _nbDiceRollsLeft = 3;
+                            _nbDiceRollsLeft = DefaultRollsCount;
                             _totalTurnID++;
 
                             do
@@ -365,9 +376,9 @@ namespace BoardGames.KingOfTokyo
                     }
                     goto case eTurnState.eTS_StartingTurn;
 
-                case eTurnState.eTS_ReactToDiceAction:
-                case eTurnState.eTS_ApplyDamageOnTokyoAction:
-                case eTurnState.eTS_PurchaseCardsAction:
+                case eTurnState.eTS_ReactToDicePlayerHook:
+                case eTurnState.eTS_ApplyDamageOnTokyoPlayerHook:
+                case eTurnState.eTS_PurchaseCardsPlayerHook:
                     { 
                         Debug.Assert(false, "CGame - Tick: Should not be called while an action is expected.");
                     }
@@ -375,9 +386,45 @@ namespace BoardGames.KingOfTokyo
             }            
         }
 
+        public void PlayAction(IAction aAction)
+        {
+            switch((eActionType)aAction.GetActionType())
+            {
+                case eActionType.eAT_MarkDiceForReroll:
+                    {
+                        CActionMarkDiceForReroll markDiceAction = (CActionMarkDiceForReroll)aAction;
+                        foreach (int diceIndex in markDiceAction.DiceToRerollIndexList)
+                        {
+                            Dice[diceIndex].ShouldReroll = true;
+                        }
+
+                        _turnState = _nbDiceRollsLeft == 0 ? eTurnState.eTS_EndingTurn : eTurnState.eTS_RollingDice;
+                    }
+                    break;
+
+                /*case eActionType.eAT_ReactToDamageOnTokyo:
+                    {
+                        CActionReactToDamageOnTokyo reactToDamage = (CActionReactToDamageOnTokyo)aAction;
+                    }
+                    break;*/
+            }
+        }
+
         public bool IsGameCompleted()
         {
             return GetWinningPlayerId() != -1 && GetAlivePlayerCount() > 0;
+        }
+
+        public bool IsRequiringPlayerAction()
+        {
+            return _turnState == eTurnState.eTS_ApplyDamageOnTokyoPlayerHook ||
+                   _turnState == eTurnState.eTS_PurchaseCardsPlayerHook ||
+                   _turnState == eTurnState.eTS_ReactToDicePlayerHook;
+        }
+
+        public IPlayer GetCurrentPlayer()
+        {
+            return CurrentPlayer;
         }
 
         #endregion // IGame

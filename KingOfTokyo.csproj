@@ -44,11 +44,14 @@
   </ItemGroup>
   <ItemGroup>
     <Compile Include="Sources\Framework\CGameController.cs" />
+    <Compile Include="Sources\Framework\IAction.cs" />
     <Compile Include="Sources\Framework\IGame.cs" />
+    <Compile Include="Sources\Framework\IPlayer.cs" />
+    <Compile Include="Sources\KingOfTokyo\CAction.cs" />
     <Compile Include="Sources\Utils\EnumUtils.cs" />
-    <Compile Include="Sources\KingOfTokyo\CKingOfTokyoDice.cs" />
-    <Compile Include="Sources\KingOfTokyo\CKingOfTokyoGame.cs" />
-    <Compile Include="Sources\KingOfTokyo\CKingOfTokyoPlayer.cs" />
+    <Compile Include="Sources\KingOfTokyo\CDice.cs" />
+    <Compile Include="Sources\KingOfTokyo\CGame.cs" />
+    <Compile Include="Sources\KingOfTokyo\CPlayer.cs" />
     <Compile Include="Sources\Program.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
     <Compile Include="Sources\Utils\FileUtils.cs" />

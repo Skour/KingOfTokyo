@@ -49,7 +49,7 @@ namespace BoardGames.KingOfTokyo
             }
             set
             {
-                ShouldReroll = value;
+                _shouldReroll = value;
             }
         }
 

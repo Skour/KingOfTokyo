@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.ComponentModel;
+using System.Diagnostics;
 using System.Linq;
 using System.IO;
 using System.Text;
@@ -9,18 +10,21 @@ namespace BoardGames.KingOfTokyo
 {
     #region Enums
 
-    /*enum eTurnState
+    enum eTurnState
     {
-        eTS_TurnStart,
+        eTS_StartingTurn,
+        eTS_InitialRollingDice,
         eTS_RollingDice,
-        eTS_BuyingCards,
-        eTS_TurnEnd,
-    }*/
+        eTS_ReactToDiceAction,
+        eTS_ApplyDamageOnTokyoAction,
+        eTS_PurchaseCardsAction,
+        eTS_EndingTurn,
+    }
 
     enum ePlayerActionType
     {
-        ePAT_MarkDiceForReroll,
-        ePAT_ChooseToExitTokyo,
+        ePAT_ReactToDice,
+        ePAT_ReactToDamageOnTokyo,
         ePAT_PurchaseCard,
         //ePAT_UseCard,
     }
@@ -63,10 +67,10 @@ namespace BoardGames.KingOfTokyo
         private uint _totalTurnID = 0;
         private uint _startingPlayerIndex = 0;
         private uint _currentPlayerIndex = 0;
+        private eTurnState _turnState = eTurnState.eTS_StartingTurn;
+        private uint _nbDiceRollsLeft = 3;
 
         StringBuilder _log = new StringBuilder();
-
-        //private eTurnState turnState = eTurnState.eTS_TurnStart;
 
         #endregion
 
@@ -88,11 +92,19 @@ namespace BoardGames.KingOfTokyo
             }
         }
 
+        public List<CDice> Dice
+        {
+            get
+            {
+                return _diceList;
+            }
+        }
+
         public String LogFilename
         {
             get
             {
-                return String.Format("Output{0}.txt", _gameID);
+                return String.Format("Log\\Output{0}.txt", _gameID);
             }
         }
 
@@ -225,7 +237,7 @@ namespace BoardGames.KingOfTokyo
                             
                             player.Location = eLocations.eL_Outside;
                             
-                            // STODO - Action: Implement Choose Exit Tokyo Action
+                            // STODO: Implement eTurnState.eTS_ApplyDamageOnTokyoAction
                         }
                     }
 
@@ -288,57 +300,79 @@ namespace BoardGames.KingOfTokyo
 
         public void Tick()
         {
-            if (CurrentPlayer.Location != eLocations.eL_Outside)
+            switch(_turnState)
             {
-                CurrentPlayer.AdjustVictoryPoints(VPRewardBeginTurnInTokyo);
-            }
-
-            foreach (CDice die in _diceList)
-            {
-                die.Roll();
-            }
-
-            // STODO - Action: Implement Mark Reroll Action
-
-            foreach (CDice die in _diceList)
-            {
-                if (die.ShouldReroll)
-                {
-                    die.Roll();
-                }
-            }
-
-            // STODO - Action: Implement Mark Reroll Action
-
-            foreach (CDice die in _diceList)
-            {
-                if (die.ShouldReroll)
-                {
-                    die.Roll();
-                }
-            }
-
-            CalculateAndApplyDiceResult();
-
-            // STODO - Action: Implement Purchase Card Action
-
-            LogGameState();
-
-            if (!IsGameCompleted())
-            {
-                _totalTurnID++;
-
-                do
-                {
-                    _currentPlayerIndex = (_currentPlayerIndex + 1) % (uint)Players.Count;
-
-                    if (_currentPlayerIndex == _startingPlayerIndex)
+                case eTurnState.eTS_StartingTurn:
                     {
-                        _turnID++;
+                        if (CurrentPlayer.Location != eLocations.eL_Outside)
+                        {
+                            CurrentPlayer.AdjustVictoryPoints(VPRewardBeginTurnInTokyo);
+                        }
                     }
+                    goto case eTurnState.eTS_InitialRollingDice;
 
-                } while (!CurrentPlayer.IsAlive());
-            }
+                case eTurnState.eTS_InitialRollingDice:
+                    {
+                        foreach (CDice die in _diceList)
+                        {
+                            die.Roll();
+                        }
+
+                        _nbDiceRollsLeft--;
+                        _turnState = eTurnState.eTS_RollingDice; // STODO: Implement eTurnState.eTS_ReactToDiceAction
+                    }
+                    break;
+
+                case eTurnState.eTS_RollingDice:
+                    {
+                        foreach (CDice die in _diceList)
+                        {
+                            if (die.ShouldReroll)
+                            {
+                                die.Roll();
+                            }
+                        }
+
+                        _nbDiceRollsLeft--;
+                        _turnState = _nbDiceRollsLeft == 0 ? eTurnState.eTS_EndingTurn : eTurnState.eTS_RollingDice; // STODO: Implement eTurnState.eTS_ReactToDiceAction
+                    }
+                    break;
+
+                case eTurnState.eTS_EndingTurn:
+                    {
+                        CalculateAndApplyDiceResult();
+
+                        // STODO: Implement eTurnState.eTS_PurchaseCardsAction
+
+                        LogGameState();
+
+                        if (!IsGameCompleted())
+                        {
+                            _nbDiceRollsLeft = 3;
+                            _totalTurnID++;
+
+                            do
+                            {
+                                _currentPlayerIndex = (_currentPlayerIndex + 1) % (uint)Players.Count;
+
+                                if (_currentPlayerIndex == _startingPlayerIndex)
+                                {
+                                    _turnID++;
+                                }
+
+                            } while (!CurrentPlayer.IsAlive());
+                        }
+                    }
+                    goto case eTurnState.eTS_StartingTurn;
+
+                case eTurnState.eTS_ReactToDiceAction:
+                case eTurnState.eTS_ApplyDamageOnTokyoAction:
+                case eTurnState.eTS_PurchaseCardsAction:
+                    { 
+                        Debug.Assert(false, "CGame - Tick: Should not be called while an action is expected.");
+                    }
+                    break;
+            }            
         }
 
         public bool IsGameCompleted()

@@ -14,7 +14,9 @@ namespace BoardGames
         {
             static void Main(string[] args)
             {
-                StreamWriter fileLogger = new StreamWriter("Game.log");
+                FileUtils.CreateOrEmptyDirectory("Log");           
+
+                StreamWriter fileLogger = new StreamWriter("Log\\Game.log");
 
                 for (int i = 0; i < 100; ++i)
                 {
